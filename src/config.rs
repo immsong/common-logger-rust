@@ -1,10 +1,21 @@
 use std::path::PathBuf;
 
+use chrono::{Local, NaiveDate, Utc};
+
 #[derive(Clone, Copy, Debug, Default)]
 pub enum LogTimeZone {
     #[default]
     Local,
     Utc,
+}
+
+impl LogTimeZone {
+    pub(crate) fn current_date(self) -> NaiveDate {
+        match self {
+            Self::Local => Local::now().date_naive(),
+            Self::Utc => Utc::now().date_naive(),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
