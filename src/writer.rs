@@ -2,14 +2,15 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use chrono::{Local, NaiveDate};
+use chrono::{Local, NaiveDate, Utc};
 
-use crate::LoggerConfig;
+use crate::{LogTimeZone, LoggerConfig};
 
 pub struct DailyFileAppender {
     log_dir: PathBuf,
     filename_prefix: String,
     max_log_files: usize,
+    time_zone: LogTimeZone,
     current_date: NaiveDate,
     file: File,
 }
@@ -18,13 +19,14 @@ impl DailyFileAppender {
     pub fn new(config: &LoggerConfig) -> io::Result<Self> {
         fs::create_dir_all(&config.log_dir)?;
 
-        let current_date = Local::now().date_naive();
+        let current_date = Self::current_date(config.time_zone);
         let file = Self::open_log_file(&config.log_dir, &config.filename_prefix, current_date)?;
 
         let appender = Self {
             log_dir: config.log_dir.clone(),
             filename_prefix: config.filename_prefix.clone(),
             max_log_files: config.max_log_files,
+            time_zone: config.time_zone,
             current_date,
             file,
         };
@@ -32,6 +34,13 @@ impl DailyFileAppender {
         appender.prune_old_logs();
 
         Ok(appender)
+    }
+
+    fn current_date(time_zone: LogTimeZone) -> NaiveDate {
+        match time_zone {
+            LogTimeZone::Local => Local::now().date_naive(),
+            LogTimeZone::Utc => Utc::now().date_naive(),
+        }
     }
 
     fn open_log_file(log_dir: &Path, filename_prefix: &str, date: NaiveDate) -> io::Result<File> {
@@ -44,7 +53,7 @@ impl DailyFileAppender {
     }
 
     fn rotate_if_needed(&mut self) -> io::Result<()> {
-        let current_date = Local::now().date_naive();
+        let current_date = Self::current_date(self.time_zone);
 
         if current_date == self.current_date {
             return Ok(());

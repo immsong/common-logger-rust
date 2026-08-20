@@ -1,5 +1,12 @@
 use std::path::PathBuf;
 
+#[derive(Clone, Copy, Debug, Default)]
+pub enum LogTimeZone {
+    #[default]
+    Local,
+    Utc,
+}
+
 #[derive(Clone, Debug)]
 pub struct LoggerConfig {
     pub log_dir: PathBuf,
@@ -7,6 +14,7 @@ pub struct LoggerConfig {
     pub max_log_files: usize,
     pub console_filter: String,
     pub file_filter: String,
+    pub time_zone: LogTimeZone,
 }
 
 impl Default for LoggerConfig {
@@ -17,6 +25,7 @@ impl Default for LoggerConfig {
             max_log_files: 30,
             console_filter: "debug".into(),
             file_filter: "info".into(),
+            time_zone: LogTimeZone::Local,
         }
     }
 }
