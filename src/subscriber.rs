@@ -1,12 +1,14 @@
 use std::error::Error;
+use std::fmt;
 use std::sync::{Mutex, OnceLock};
 
 use tracing_appender::non_blocking::WorkerGuard;
-use tracing_subscriber::fmt::time::ChronoLocal;
+use tracing_subscriber::fmt::format::Writer;
+use tracing_subscriber::fmt::time::{ChronoLocal, ChronoUtc, FormatTime};
 use tracing_subscriber::{EnvFilter, Layer, layer::SubscriberExt};
 
-use crate::LoggerConfig;
 use crate::writer::DailyFileAppender;
+use crate::{LogTimeZone, LoggerConfig};
 
 // Keep WorkerGuard alive until the process exits.
 //
@@ -16,6 +18,21 @@ static TRACING_GUARD: OnceLock<Mutex<Option<WorkerGuard>>> = OnceLock::new();
 
 fn tracing_guard() -> &'static Mutex<Option<WorkerGuard>> {
     TRACING_GUARD.get_or_init(|| Mutex::new(None))
+}
+
+#[derive(Clone)]
+enum LogTimer {
+    Local(ChronoLocal),
+    Utc(ChronoUtc),
+}
+
+impl FormatTime for LogTimer {
+    fn format_time(&self, writer: &mut Writer<'_>) -> fmt::Result {
+        match self {
+            Self::Local(timer) => timer.format_time(writer),
+            Self::Utc(timer) => timer.format_time(writer),
+        }
+    }
 }
 
 // Initialize the tracing subscriber.
@@ -36,7 +53,12 @@ pub fn initialize(config: LoggerConfig) -> Result<(), Box<dyn Error>> {
 
     let (non_blocking, worker_guard) = tracing_appender::non_blocking(file_appender);
 
-    let timer = ChronoLocal::new("%Y-%m-%d %H:%M:%S%.3f".to_string());
+    let timer = match config.time_zone {
+        LogTimeZone::Local => {
+            LogTimer::Local(ChronoLocal::new("%Y-%m-%d %H:%M:%S%.3f".to_string()))
+        }
+        LogTimeZone::Utc => LogTimer::Utc(ChronoUtc::new("%Y-%m-%d %H:%M:%S%.3f".to_string())),
+    };
 
     // Create separate filters for console and file logs.
     let console_filter = EnvFilter::try_new(&config.console_filter)?;
