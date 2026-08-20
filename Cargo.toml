@@ -11,3 +11,4 @@ tracing-subscriber = { version = "0.3.19", features = [
 ] }
 tracing-appender = "0.2.5"
 tracing = "0.1.44"
+chrono = { version = "0.4.45", default-features = false, features = ["clock"] }

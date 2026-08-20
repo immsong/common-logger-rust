@@ -2,11 +2,11 @@ use std::error::Error;
 use std::sync::{Mutex, OnceLock};
 
 use tracing_appender::non_blocking::WorkerGuard;
-use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::fmt::time::ChronoLocal;
 use tracing_subscriber::{EnvFilter, Layer, layer::SubscriberExt};
 
 use crate::LoggerConfig;
+use crate::writer::DailyFileAppender;
 
 // Keep WorkerGuard alive until the process exits.
 //
@@ -32,12 +32,7 @@ pub fn initialize(config: LoggerConfig) -> Result<(), Box<dyn Error>> {
     }
 
     // Create a daily rolling log file.
-    let file_appender = RollingFileAppender::builder()
-        .rotation(Rotation::DAILY)
-        .max_log_files(config.max_log_files)
-        .filename_prefix(&config.filename_prefix)
-        .filename_suffix("log")
-        .build(&config.log_dir)?;
+    let file_appender = DailyFileAppender::new(&config)?;
 
     let (non_blocking, worker_guard) = tracing_appender::non_blocking(file_appender);
 
