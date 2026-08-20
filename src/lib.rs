@@ -1,5 +1,6 @@
 mod backup;
 mod config;
+mod maintenance;
 mod subscriber;
 mod writer;
 

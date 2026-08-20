@@ -111,5 +111,12 @@ pub fn initialize(config: LoggerConfig) -> Result<(), Box<dyn Error>> {
         _ => {}
     }
 
+    if let Err(error) = crate::maintenance::start(config) {
+        tracing::warn!(
+            %error,
+            "failed to start log maintenance"
+        );
+    }
+
     Ok(())
 }
