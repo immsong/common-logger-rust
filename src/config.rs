@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::time::Duration;
 
 use chrono::{Local, NaiveDate, Utc};
 
@@ -26,6 +27,7 @@ pub struct LoggerConfig {
     pub console_filter: String,
     pub file_filter: String,
     pub time_zone: LogTimeZone,
+    pub maintenance_interval: Duration,
 }
 
 impl Default for LoggerConfig {
@@ -37,6 +39,7 @@ impl Default for LoggerConfig {
             console_filter: "debug".into(),
             file_filter: "info".into(),
             time_zone: LogTimeZone::Local,
+            maintenance_interval: Duration::from_secs(60 * 60),
         }
     }
 }

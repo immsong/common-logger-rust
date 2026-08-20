@@ -110,7 +110,10 @@ fn backup_log_file(source_path: &Path, backup_dir: &Path) -> io::Result<bool> {
         fs::rename(&temp_path, &backup_path)?;
 
         // Remove the source only after the backup is complete.
-        fs::remove_file(source_path)?;
+        if let Err(error) = fs::remove_file(source_path) {
+            let _ = fs::remove_file(&backup_path);
+            return Err(error);
+        }
 
         Ok(true)
     })();
