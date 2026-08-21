@@ -1,8 +1,9 @@
-use crate::LoggerConfig;
-use crate::backup::backup_old_logs;
 use std::io;
 use std::thread;
 use std::time::Duration;
+
+use crate::LoggerConfig;
+use crate::backup::{backup_old_logs, prune_backup_logs};
 
 const MIN_MAINTENANCE_INTERVAL: Duration = Duration::from_secs(10);
 
@@ -27,6 +28,19 @@ pub(crate) fn start(config: LoggerConfig) -> io::Result<()> {
                         tracing::warn!(
                             %error,
                             "old log backup failed"
+                        );
+                    }
+                    _ => {}
+                }
+
+                match prune_backup_logs(&config) {
+                    Ok(count) if count > 0 => {
+                        tracing::info!(count, "old backup logs removed");
+                    }
+                    Err(error) => {
+                        tracing::warn!(
+                            %error,
+                            "backup retention failed"
                         );
                     }
                     _ => {}

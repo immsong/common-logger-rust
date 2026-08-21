@@ -7,7 +7,7 @@ use tracing_subscriber::fmt::format::Writer;
 use tracing_subscriber::fmt::time::{ChronoLocal, ChronoUtc, FormatTime};
 use tracing_subscriber::{EnvFilter, Layer, layer::SubscriberExt};
 
-use crate::backup::backup_old_logs;
+use crate::backup::{backup_old_logs, prune_backup_logs};
 use crate::writer::DailyFileAppender;
 use crate::{LogTimeZone, LoggerConfig};
 
@@ -51,6 +51,9 @@ pub fn initialize(config: LoggerConfig) -> Result<(), Box<dyn Error>> {
 
     // Backup old logs before creating a new log file.
     let backup_result = backup_old_logs(&config);
+
+    // Prune old backup logs based on the retention policy.
+    let retention_result = prune_backup_logs(&config);
 
     // Create a daily rolling log file.
     let file_appender = DailyFileAppender::new(&config)?;
@@ -106,6 +109,19 @@ pub fn initialize(config: LoggerConfig) -> Result<(), Box<dyn Error>> {
             tracing::warn!(
                 %error,
                 "old log backup failed"
+            );
+        }
+        _ => {}
+    }
+
+    match retention_result {
+        Ok(count) if count > 0 => {
+            tracing::info!(count, "old backup logs removed");
+        }
+        Err(error) => {
+            tracing::warn!(
+                %error,
+                "backup retention failed"
             );
         }
         _ => {}
