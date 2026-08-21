@@ -28,6 +28,8 @@ pub struct LoggerConfig {
     pub file_filter: String,
     pub time_zone: LogTimeZone,
     pub maintenance_interval: Duration,
+    pub backup_retention_days: Option<u64>,
+    pub max_backup_size_bytes: Option<u64>,
 }
 
 impl Default for LoggerConfig {
@@ -40,6 +42,8 @@ impl Default for LoggerConfig {
             file_filter: "info".into(),
             time_zone: LogTimeZone::Local,
             maintenance_interval: Duration::from_secs(60 * 60),
+            backup_retention_days: None,
+            max_backup_size_bytes: None,
         }
     }
 }

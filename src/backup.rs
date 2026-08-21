@@ -2,11 +2,17 @@ use std::fs::{self, File};
 use std::io;
 use std::path::{Path, PathBuf};
 
-use chrono::NaiveDate;
+use chrono::{Days, NaiveDate};
 use flate2::Compression;
 use flate2::write::GzEncoder;
 
 use crate::LoggerConfig;
+
+struct BackupLogFile {
+    date: NaiveDate,
+    path: PathBuf,
+    size: u64,
+}
 
 pub(crate) fn backup_old_logs(config: &LoggerConfig) -> io::Result<usize> {
     let today = config.time_zone.current_date();
@@ -123,4 +129,111 @@ fn backup_log_file(source_path: &Path, backup_dir: &Path) -> io::Result<bool> {
     }
 
     result
+}
+
+pub(crate) fn prune_backup_logs(config: &LoggerConfig) -> io::Result<usize> {
+    let mut removed_count = 0;
+
+    if let Some(days) = config.backup_retention_days {
+        removed_count += prune_backup_by_days(config, days)?;
+    }
+
+    if let Some(max_size) = config.max_backup_size_bytes {
+        removed_count += prune_backup_by_size(config, max_size)?;
+    }
+
+    Ok(removed_count)
+}
+
+fn prune_backup_by_days(config: &LoggerConfig, retention_days: u64) -> io::Result<usize> {
+    let today = config.time_zone.current_date();
+
+    let Some(cutoff_date) = today.checked_sub_days(Days::new(retention_days)) else {
+        return Ok(0);
+    };
+
+    let backup_files = collect_backup_logs(config)?;
+    let mut removed_count = 0;
+
+    for file in backup_files {
+        if file.date < cutoff_date {
+            fs::remove_file(&file.path)?;
+            removed_count += 1;
+        }
+    }
+
+    Ok(removed_count)
+}
+
+fn prune_backup_by_size(config: &LoggerConfig, max_size: u64) -> io::Result<usize> {
+    let mut backup_files = collect_backup_logs(config)?;
+
+    backup_files.sort_by_key(|file| file.date);
+
+    let mut total_size = backup_files.iter().map(|file| file.size).sum::<u64>();
+
+    let mut removed_count = 0;
+
+    for file in backup_files {
+        if total_size <= max_size {
+            break;
+        }
+
+        fs::remove_file(&file.path)?;
+
+        total_size = total_size.saturating_sub(file.size);
+        removed_count += 1;
+    }
+
+    Ok(removed_count)
+}
+
+fn collect_backup_logs(config: &LoggerConfig) -> io::Result<Vec<BackupLogFile>> {
+    let backup_dir = config.log_dir.join("backup");
+
+    if !backup_dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    let prefix = format!("{}.", config.filename_prefix);
+    let mut files = Vec::new();
+
+    for entry in fs::read_dir(&backup_dir)? {
+        let Ok(entry) = entry else {
+            continue;
+        };
+
+        let Ok(metadata) = entry.metadata() else {
+            continue;
+        };
+
+        if !metadata.is_file() {
+            continue;
+        }
+
+        let filename = entry.file_name();
+
+        let Some(filename) = filename.to_str() else {
+            continue;
+        };
+
+        let Some(date) = filename
+            .strip_prefix(&prefix)
+            .and_then(|value| value.strip_suffix(".log.gz"))
+        else {
+            continue;
+        };
+
+        let Ok(date) = NaiveDate::parse_from_str(date, "%Y-%m-%d") else {
+            continue;
+        };
+
+        files.push(BackupLogFile {
+            date,
+            path: entry.path(),
+            size: metadata.len(),
+        });
+    }
+
+    Ok(files)
 }
