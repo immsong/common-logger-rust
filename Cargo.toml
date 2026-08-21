@@ -2,6 +2,7 @@
 name = "common-logger"
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
 
 [dependencies]
 tracing-subscriber = { version = "0.3.19", features = [
